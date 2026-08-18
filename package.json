@@ -1,0 +1,60 @@
+{
+  "name": "@thelad-dev/prime-agent-cursor-provider",
+  "version": "0.1.0",
+  "description": "Prime Agent extension that routes model requests through the Cursor Agent CLI (native provider, not OpenAI/models.json).",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "prime-agent",
+    "cursor",
+    "llm",
+    "ai",
+    "custom-provider"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/thelad-dev/prime-agent-cursor-provider.git"
+  },
+  "homepage": "https://github.com/thelad-dev/prime-agent-cursor-provider#readme",
+  "bugs": {
+    "url": "https://github.com/thelad-dev/prime-agent-cursor-provider/issues"
+  },
+  "files": [
+    "index.ts",
+    "lib",
+    "README.md",
+    "LICENSE",
+    "OWNERSHIP.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "prime-agent": ">=0.7.3"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "prime-agent": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "typecheck": "npx --yes typescript@5.9.3 --noEmit -p tsconfig.json",
+    "e2e:discovery": "node --experimental-strip-types scripts/e2e-discovery.ts",
+    "e2e:register": "node --experimental-strip-types scripts/e2e-register.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.9.3"
+  }
+}
