@@ -54,6 +54,7 @@
     "e2e:register": "node --experimental-strip-types scripts/e2e-register.ts"
   },
   "devDependencies": {
+    "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.7.3/prime-agent-ai-0.7.3.tgz",
     "@types/node": "^22.13.10",
     "typescript": "^5.9.3"
   }
