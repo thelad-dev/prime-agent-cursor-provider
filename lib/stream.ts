@@ -145,7 +145,14 @@ export function streamCursorCli(
       });
 
       await new Promise<void>((resolve) => {
+        // Node emits `error` (e.g. ENOENT) *and then* `close(-2)` for a failed
+        // spawn. Both handlers mutate the same `output` the consumer already
+        // holds, so the first one to run must win or its message is clobbered.
+        let settled = false;
+
         child.on("close", (code) => {
+          if (settled) return;
+          settled = true;
           options?.signal?.removeEventListener("abort", onAbort);
 
           if (state.textBlockOpen) {
@@ -188,6 +195,8 @@ export function streamCursorCli(
         });
 
         child.on("error", (err) => {
+          if (settled) return;
+          settled = true;
           options?.signal?.removeEventListener("abort", onAbort);
           output.stopReason = "error";
           output.errorMessage = formatSpawnErrno(agentPath, err);
