@@ -43,20 +43,36 @@ describe("agent path and args", () => {
     assert.equal(resolveAgentPath({}), "agent");
   });
 
-  it("forwards CURSOR_API_KEY as --api-key", () => {
-    const args = buildAgentModelsArgs({ CURSOR_API_KEY: "secret-key" });
-    assert.deepEqual(args.slice(0, 2), ["--api-key", "secret-key"]);
+  it("builds the documented print flags", () => {
     const print = buildAgentPrintArgs({
       model: "auto",
       workspace: "/tmp/ws",
       prompt: "hi",
-      env: { CURSOR_API_KEY: "secret-key" },
     });
-    assert.equal(print[0], "--api-key");
-    assert.equal(print[1], "secret-key");
+    assert.equal(print[0], "--print");
     assert.ok(print.includes("stream-json"));
     assert.ok(print.includes("--trust"));
     assert.ok(print.includes("--workspace"));
+    assert.equal(print.at(-1), "hi");
+  });
+
+  it("never puts secrets on child argv", () => {
+    process.env["CURSOR_API_KEY"] = "secret-key";
+    try {
+      const models = buildAgentModelsArgs();
+      const print = buildAgentPrintArgs({
+        model: "auto",
+        workspace: "/tmp/ws",
+        prompt: "hi",
+      });
+      for (const args of [models, print]) {
+        assert.ok(!args.includes("--api-key"));
+        assert.ok(!args.some((a) => a.includes("secret-key")));
+      }
+      assert.deepEqual(models, ["models"]);
+    } finally {
+      delete process.env["CURSOR_API_KEY"];
+    }
   });
 });
 

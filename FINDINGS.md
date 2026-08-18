@@ -14,7 +14,8 @@ Ship this standalone extension against installed Prime Agent 0.7.3; Firstmate wi
 | `pi.registerProvider` / `streamSimple` / `ProviderConfig` | `prime-agent@0.7.3` `dist/core/extensions/types.d.ts` + `docs/custom-provider.md` |
 | Extension package manifest `pi.extensions` | `docs/packages.md` |
 | `agent --print --output-format stream-json --model --trust --workspace` | `agent --help` 2026.08.11-e8db854 |
-| `agent models` / `login` / `status` / `logout` / `--api-key` | live CLI help |
+| `agent models` / `login` / `status` / `logout` | live CLI help |
+| `CURSOR_API_KEY` env var accepted in place of `--api-key` | `agent --help`: "can also use CURSOR_API_KEY env var" |
 | `Api` open string for custom stream handlers | `@earendil-works/pi-ai` `types.d.ts` (`KnownApi \| (string & {})`) |
 
 ## UNVERIFIED (account-dependent)

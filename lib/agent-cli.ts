@@ -1,32 +1,35 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolveAgentPath } from "./agent-path.ts";
+import { redactedStderr } from "./errors.ts";
 import {
   parseAgentModelsOutput,
   type CursorModelDef,
 } from "./models.ts";
 
 export const DISCOVERY_TIMEOUT_MS = 15_000;
+export const STATUS_TIMEOUT_MS = 15_000;
+export const LOGOUT_TIMEOUT_MS = 30_000;
+/** Login is interactive (browser/device code), so it gets a much longer leash. */
+export const LOGIN_TIMEOUT_MS = 300_000;
 export const KILL_GRACE_MS = 2_000;
 
-export function buildAgentModelsArgs(
-  env: NodeJS.ProcessEnv = process.env,
-): string[] {
-  const args = ["models"];
-  // Pass key on argv only when set; never log it.
-  if (env["CURSOR_API_KEY"]) {
-    args.unshift("--api-key", env["CURSOR_API_KEY"]);
-  }
-  return args;
+/**
+ * New process group so terminateChild can signal the whole tree.
+ * Only for children with piped stdio: a detached child that inherits the
+ * terminal is a background process group and would stop on SIGTTIN when reading.
+ */
+const DETACHED = process.platform !== "win32";
+
+export function buildAgentModelsArgs(): string[] {
+  return ["models"];
 }
 
 export function buildAgentPrintArgs(opts: {
   model: string;
   workspace: string;
   prompt: string;
-  env?: NodeJS.ProcessEnv;
 }): string[] {
-  const env = opts.env ?? process.env;
-  const args = [
+  return [
     "--print",
     "--output-format",
     "stream-json",
@@ -37,10 +40,6 @@ export function buildAgentPrintArgs(opts: {
     opts.workspace,
     opts.prompt,
   ];
-  if (env["CURSOR_API_KEY"]) {
-    args.unshift("--api-key", env["CURSOR_API_KEY"]);
-  }
-  return args;
 }
 
 /**
@@ -82,24 +81,38 @@ export function terminateChild(
   }, graceMs).unref?.();
 }
 
+/**
+ * Arm a teardown timer for a child. Returns a disarm callback for the exit paths.
+ */
+function armTimeout(
+  child: ChildProcess,
+  timeoutMs: number,
+  label: string,
+  onTimeout: (err: Error) => void,
+): () => void {
+  const timer = setTimeout(() => {
+    terminateChild(child);
+    onTimeout(new Error(`${label} timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  return () => clearTimeout(timer);
+}
+
 export function runAgentModels(
   agentPath: string = resolveAgentPath(),
   env: NodeJS.ProcessEnv = process.env,
   timeoutMs: number = DISCOVERY_TIMEOUT_MS,
 ): Promise<CursorModelDef[]> {
   return new Promise((resolve, reject) => {
-    const args = buildAgentModelsArgs(env);
     let stdout = "";
     let stderr = "";
-    const child = spawn(agentPath, args, {
+    // CURSOR_API_KEY reaches the CLI through the child env only, never argv.
+    const child = spawn(agentPath, buildAgentModelsArgs(), {
       stdio: ["ignore", "pipe", "pipe"],
       env,
+      detached: DETACHED,
     });
 
-    const timeout = setTimeout(() => {
-      terminateChild(child);
-      reject(new Error(`agent models timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
+    const disarm = armTimeout(child, timeoutMs, "agent models", reject);
 
     child.stdout?.on("data", (chunk: Buffer) => {
       stdout += chunk.toString();
@@ -109,16 +122,16 @@ export function runAgentModels(
     });
 
     child.on("error", (err) => {
-      clearTimeout(timeout);
+      disarm();
       reject(err);
     });
 
     child.on("close", (code) => {
-      clearTimeout(timeout);
+      disarm();
       if (code !== 0) {
         reject(
           new Error(
-            `agent models exited with code ${code}: ${stderr.trim() || "(no stderr)"}`,
+            `agent models exited with code ${code}: ${redactedStderr(stderr.trim()) || "(no stderr)"}`,
           ),
         );
         return;
@@ -136,35 +149,54 @@ export function runAgentModels(
 export function runAgentStatus(
   agentPath: string = resolveAgentPath(),
   env: NodeJS.ProcessEnv = process.env,
+  timeoutMs: number = STATUS_TIMEOUT_MS,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     let out = "";
     const child = spawn(agentPath, ["status"], {
       stdio: ["ignore", "pipe", "pipe"],
       env,
+      detached: DETACHED,
     });
+
+    const disarm = armTimeout(child, timeoutMs, "agent status", reject);
+
     child.stdout?.on("data", (c: Buffer) => {
       out += c.toString();
     });
     child.stderr?.on("data", (c: Buffer) => {
       out += c.toString();
     });
-    child.on("error", reject);
-    child.on("close", () => resolve(out.trim()));
+    child.on("error", (err) => {
+      disarm();
+      reject(err);
+    });
+    child.on("close", () => {
+      disarm();
+      resolve(redactedStderr(out.trim()));
+    });
   });
 }
 
 export function runAgentLogin(
   agentPath: string = resolveAgentPath(),
   env: NodeJS.ProcessEnv = process.env,
+  timeoutMs: number = LOGIN_TIMEOUT_MS,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(agentPath, ["login"], {
       stdio: "inherit",
       env: { ...env, NO_OPEN_BROWSER: "1" },
     });
-    child.on("error", reject);
+
+    const disarm = armTimeout(child, timeoutMs, "agent login", reject);
+
+    child.on("error", (err) => {
+      disarm();
+      reject(err);
+    });
     child.on("close", (code) => {
+      disarm();
       if (code === 0) resolve();
       else reject(new Error(`agent login exited with code ${code}`));
     });
@@ -174,14 +206,22 @@ export function runAgentLogin(
 export function runAgentLogout(
   agentPath: string = resolveAgentPath(),
   env: NodeJS.ProcessEnv = process.env,
+  timeoutMs: number = LOGOUT_TIMEOUT_MS,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(agentPath, ["logout"], {
       stdio: "inherit",
       env,
     });
-    child.on("error", reject);
+
+    const disarm = armTimeout(child, timeoutMs, "agent logout", reject);
+
+    child.on("error", (err) => {
+      disarm();
+      reject(err);
+    });
     child.on("close", (code) => {
+      disarm();
       if (code === 0) resolve();
       else reject(new Error(`agent logout exited with code ${code}`));
     });

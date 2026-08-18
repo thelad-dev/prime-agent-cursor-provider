@@ -38,7 +38,7 @@ export default async function (pi: ExtensionAPI): Promise<void> {
     name: "Cursor",
     baseUrl: "cli://cursor-agent",
     // ProviderConfig requires apiKey when models are set. Real Cursor auth is delegated to
-    // `agent login` / child env CURSOR_API_KEY (forwarded in buildAgentPrintArgs), not Prime HTTP.
+    // `agent login` / child env CURSOR_API_KEY (forwarded in the child environment only), not Prime HTTP.
     // A non-env sentinel avoids Prime treating missing CURSOR_API_KEY as hard provider failure.
     apiKey: "cursor-cli-delegated-auth",
     api: "cursor-agent-cli" as Api,

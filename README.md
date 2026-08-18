@@ -69,6 +69,7 @@ Prime Agent
 - **Tools:** Cursor executes tools; this provider observes NDJSON and emits informational text (no Prime re-execution loop).
 - **Workspace:** `process.cwd()` (Firstmate/Prime assigned worktree).
 - **Teardown:** AbortSignal terminates the child process group (SIGTERM, then SIGKILL).
+- **Bounded CLI calls:** discovery, `status`, `logout`, and the interactive `login` each run under a timeout that tears the child down instead of hanging the session.
 
 ## Configuration
 
@@ -76,7 +77,7 @@ Prime Agent
 |---|---|
 | `CURSOR_AGENT_PATH` | Path to `agent` binary (preferred) |
 | `AGENT_PATH` | Fallback binary path |
-| `CURSOR_API_KEY` | Forwarded to the child as `--api-key` when set |
+| `CURSOR_API_KEY` | Read from the child environment by `agent`; never placed on the child command line |
 
 ## Limitations
 

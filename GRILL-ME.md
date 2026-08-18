@@ -9,7 +9,7 @@
 | `agent models` hangs? | 15s timeout, then fallback. |
 | `agent` missing? | ENOENT → clear error; discovery falls back; stream reports missing binary. |
 | Missing login? | CLI stderr surfaced (redacted); no Prime crash on discovery. |
-| `CURSOR_API_KEY`? | Forwarded as `--api-key` to child only; never logged (stderr redaction). |
+| `CURSOR_API_KEY`? | Inherited by the child environment only; never on argv (argv is world-readable in the process table) and never logged (stderr redaction). |
 | Worktree change / secondmates? | Uses `process.cwd()`; Firstmate launches Prime in the assigned worktree/home. |
 | Abort / daemon teardown? | AbortSignal → SIGTERM + process-group kill + SIGKILL grace. |
 | Tool ownership? | Cursor executes tools; we emit observational text, not `toolcall_*`, so Prime does not re-run tools. |
